@@ -1,0 +1,6 @@
+TeleOCR
+Copyright 2026 TeleOCR contributors
+
+This product includes software derived from Qwen2.5-VL and vLLM,
+distributed under the Apache License 2.0. The derived implementation is in
+TeleOCR-vllm/TeleOCR_vllm/qwen2_5_vl.py and retains its upstream notices.

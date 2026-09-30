@@ -2,6 +2,7 @@ from pathlib import Path
 
 from loguru import logger
 from magika import Magika
+from .language import detect_lang
 
 
 DEFAULT_LANG = "txt"
@@ -31,7 +32,8 @@ def guess_language_by_text(code):
             code = code[end + 2:]
             return lang, code
 
-    return (lang if lang != "unknown" else DEFAULT_LANG), code
+    lang = detect_lang(code)
+    return (lang if lang and lang != "unknown" else DEFAULT_LANG), code
 
 
 def guess_suffix_by_bytes(file_bytes, file_path=None) -> str:

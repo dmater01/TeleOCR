@@ -33,5 +33,4 @@ def result_to_middle_json(model_output_blocks_list, images_list, pdf_doc, image_
         page_info = blocks_to_page_info(page_blocks,image_dict,page,image_writer,index)
         middle_json['pdf_info'].append(page_info)
     
-    pdf_doc.close()
     return middle_json

@@ -15,24 +15,24 @@ class TeleOCRMODEL:
         self,
         backend: str,
         model_path: str | None,
-        server_url: str | None,
         **kwargs,
     ) -> TeleOCRClient:
-        print(backend, model_path, server_url)
-        key = (backend, model_path, server_url)
-        print(key not in self._models)
+        if backend not in {"transformers", "vllm-engine", "vllm-async-engine"}:
+            raise ValueError(f"Unsupported backend: {backend}")
+        key = (
+            backend,
+            model_path,
+            CONFIG.MAX_MODEL_LEN,
+            CONFIG.GPU_MEMORY_UTILIZATION,
+            tuple(sorted((name, repr(value)) for name, value in kwargs.items())),
+        )
         if key not in self._models:
             model = None
             processor = None
             vllm_llm = None
-            lmdeploy_engine = None
             vllm_async_llm = None
             batch_size = 0
             max_concurrency = 100
-            http_timeout = 600
-            server_headers = None
-            max_retries = 3
-            retry_backoff_factor = 0.5
             if os.getenv('OMP_NUM_THREADS') is None:
                 os.environ["OMP_NUM_THREADS"] = "1"
             if backend == "transformers":
@@ -109,16 +109,10 @@ class TeleOCRMODEL:
                 backend=backend,
                 model=model,
                 processor=processor,
-                lmdeploy_engine=lmdeploy_engine,
                 vllm_llm=vllm_llm,
                 vllm_async_llm=vllm_async_llm,
-                server_url=server_url,
                 batch_size=batch_size,
                 max_concurrency=max_concurrency,
-                http_timeout=http_timeout,
-                server_headers=server_headers,
-                max_retries=max_retries,
-                retry_backoff_factor=retry_backoff_factor,
             )
         return self._models[key]
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TeleOCR-vllm"
-version = "0.1.0"
+version = "1.0.0"
 description = "Out-of-tree vLLM model plugin for TeleOCR-1B."
 requires-python = ">=3.10"
 dependencies = [

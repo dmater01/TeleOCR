@@ -47,26 +47,14 @@ def post_process(
 
     for block in blocks:
         if block.type == "equation" and block.content:
-            try:
-                block.content = _process_equation(block.content, debug=debug)
-            except Exception as e:
-                print("Warning: Failed to process equation: ", e)
-                print("Content: ", block.content)
+            block.content = _process_equation(block.content, debug=debug)
         
         if block.type == "text" and block.content:
-            try:
-                block.content = normalize_inline_math(block.content)
-            except Exception as e:
-                print("Warning: Failed to process text: ", e)
-                print("Content: ", block.content)
+            block.content = normalize_inline_math(block.content)
 
         if block.type == "table" and block.content:
-            try:
-                block.content = convert_otsl_to_html(block.content)
-                block.content = remove_useless_label(block.content)
-            except Exception as e:
-                print("Warning: Failed to convert OTSL to HTML: ", e)
-                print("Content: ", block.content)
+            block.content = convert_otsl_to_html(block.content)
+            block.content = remove_useless_label(block.content)
         
 
     out_blocks: list[ContentBlock] = []

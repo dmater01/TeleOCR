@@ -10,8 +10,9 @@ import numpy as np
 from .post_process import post_process
 from .structs import BLOCK_TYPES, ContentBlock
 from .vlm_client import DEFAULT_SYSTEM_PROMPT, SamplingParams, new_vlm_client
-from .vlm_client.utils import gather_tasks, get_png_bytes, get_rgb_image
+from .vlm_client.utils import gather_tasks, get_rgb_image
 import TeleOCR.config as CONFIG
+from TeleOCR.errors import BlockCropError, LayoutParseError, PostProcessError
 
 class TeleOCRSamplingParams(SamplingParams):
     def __init__(
@@ -171,8 +172,6 @@ class TeleOCRClientHelper:
     def prepare_for_layout(self, image: Image.Image) -> Image.Image | bytes:
         image = get_rgb_image(image)
         image = image.resize(self.layout_image_size, Image.Resampling.BICUBIC)
-        if self.backend == "http-client":
-            return get_png_bytes(image)
         return image
 
     def parse_layout_output(self, output: str) -> list[ContentBlock]:
@@ -183,25 +182,24 @@ class TeleOCRClientHelper:
 
         for line in output.split("\n"):
             line = line.strip()
+            if not line:
+                continue
             match = layout_re.match(line)
             if not match:
-                print(f"Warning: line does not match layout format: {line}")
-                continue
+                raise LayoutParseError(f"line does not match layout format: {line}")
             box_nums, ref_type, tag = match.groups()
             
             ref_type = ref_type.lower()
             if ref_type not in BLOCK_TYPES:
-                print(f"Warning: unknown block type in line: {ref_type}")
-                continue
+                raise LayoutParseError(f"unknown block type in line: {ref_type}")
             
             box_list = _convert_bbox(box_nums)
             if box_list is None:
-                print(f"Warning: unknown box {box_nums}")
-                continue
+                raise LayoutParseError(f"invalid bounding box: {box_nums}")
             
             angle = _parse_angle(tag)
             if angle is None:
-                print(f"Warning: no angle found in line: {line}")
+                raise LayoutParseError(f"no angle found in line: {line}")
             blocks.append(ContentBlock(ref_type, box_list, angle=angle))
             
         return blocks
@@ -256,17 +254,14 @@ class TeleOCRClientHelper:
                     cv2.fillPoly(mask, [pts_shift], 255)
                     crop_np = cv2.bitwise_and(crop_np, crop_np, mask=mask)
                     crop = Image.fromarray(crop_np)
-            except:
-                continue
+            except Exception as exc:
+                raise BlockCropError(f"failed to crop block {idx} ({block.type})") from exc
             
             if crop.width < 1 or crop.height < 1:
-                print("Warning: invalid crop size")
-                continue
+                raise BlockCropError(f"invalid crop size for block {idx} ({block.type})")
             if block.angle in [90, 180, 270]:
                 crop = crop.rotate(block.angle, expand=True)
             crop = self.resize_by_need(crop)
-            if self.backend == "http-client":
-                crop = get_png_bytes(crop)
             block_images.append(crop)
             prompt = self.prompts.get(block.type) or self.prompts["default"]
             prompts.append(prompt)
@@ -280,7 +275,6 @@ class TeleOCRClientHelper:
     
     def post_process(self, blocks: list[ContentBlock]) -> list[ContentBlock]:
         try:
-            
             return post_process(
                 blocks,
                 simple_post_process=self.simple_post_process,
@@ -289,9 +283,8 @@ class TeleOCRClientHelper:
                 abandon_paratext=self.abandon_paratext,
                 debug=self.debug,
             )
-        except Exception as e:
-            print(f"Warning: post-processing failed with error: {e}")
-            return blocks
+        except Exception as exc:
+            raise PostProcessError("content post-processing failed") from exc
 
     def batch_prepare_for_layout(
         self,
@@ -370,21 +363,14 @@ class TeleOCRClient:
     def __init__(
         self,
         backend: Literal[
-            "http-client",
             "transformers",
-            "mlx-engine",
-            "lmdeploy-engine",
             "vllm-engine",
             "vllm-async-engine",
         ],
-        model_name: str | None = None,
-        server_url: str | None = None,
-        server_headers: dict[str, str] | None = None,
         model=None,  # transformers model
         processor=None,  # transformers processor
         vllm_llm=None,  # vllm.LLM model
         vllm_async_llm=None,  # vllm.v1.engine.async_llm.AsyncLLM instance
-        lmdeploy_engine=None,  # lmdeploy.serve.vl_async_engine.VLAsyncEngine instance
         model_path: str | None = None,
         prompts: dict[str, str] = DEFAULT_PROMPTS,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
@@ -401,31 +387,9 @@ class TeleOCRClient:
         max_concurrency: int = 100,
         executor: Executor | None = None,
         batch_size: int = 0,  # for transformers and vllm-engine
-        http_timeout: int = 600,  # for http-client backend only
-        connect_timeout: int = 10,  # for http-client backend only
-        max_connections: int | None = None,  # for http-client backend only
-        max_keepalive_connections: int | None = 20,  # for http-client backend only
-        keepalive_expiry: float | None = 5,  # for http-client backend only
         use_tqdm: bool = True,
         debug: bool = False,
-        max_retries: int = 3,  # for http-client backend only
-        retry_backoff_factor: float = 0.5,  # for http-client backend only
     ) -> None:
-        if backend == "lmdeploy-engine":
-            if lmdeploy_engine is None:
-                if not model_path:
-                    raise ValueError("model_path must be provided when lmdeploy_engine is None.")
-
-                try:
-                    # from lmdeploy import pipeline
-                    from lmdeploy.serve.vl_async_engine import VLAsyncEngine
-                except ImportError:
-                    raise ImportError("Please install lmdeploy to use the lmdeploy-engine backend.")
-
-                lmdeploy_engine = VLAsyncEngine(
-                    model_path,
-                )
-
         if backend == "vllm-engine":
             if vllm_llm is None:
                 if not model_path:
@@ -453,27 +417,16 @@ class TeleOCRClient:
 
         self.client = new_vlm_client(
             backend=backend,
-            model_name=model_name,
-            server_url=server_url,
-            server_headers=server_headers,
             model=model,
             processor=processor,
-            lmdeploy_engine=lmdeploy_engine,
             vllm_llm=vllm_llm,
             vllm_async_llm=vllm_async_llm,
             system_prompt=system_prompt,
             allow_truncated_content=True,
             max_concurrency=max_concurrency,
             batch_size=batch_size,
-            http_timeout=http_timeout,
-            connect_timeout=connect_timeout,
-            max_connections=max_connections,
-            max_keepalive_connections=max_keepalive_connections,
-            keepalive_expiry=keepalive_expiry,
             use_tqdm=use_tqdm,
             debug=debug,
-            max_retries=max_retries,
-            retry_backoff_factor=retry_backoff_factor,
         )
         self.helper = TeleOCRClientHelper(
             backend=backend,
@@ -498,7 +451,7 @@ class TeleOCRClient:
         self.use_tqdm = use_tqdm
         self.debug = debug
 
-        if backend in ("vllm-async-engine", "lmdeploy-engine"):
+        if backend == "vllm-async-engine":
             self.batching_mode = "concurrent"
         else:  # backend in ("transformers", "vllm-engine")
             self.batching_mode = "stepping"
@@ -766,9 +719,12 @@ class TeleOCRClient:
         task = self.aio_concurrent_two_step_extract(images, priority, not_extract_list)
 
         if loop is not None:
-            return loop.run_until_complete(task)
-        else:
-            return asyncio.run(task)
+            task.close()
+            raise RuntimeError(
+                "Synchronous extraction cannot run inside an active event loop; "
+                "await aio_batch_two_step_extract() instead."
+            )
+        return asyncio.run(task)
 
     async def aio_concurrent_two_step_extract(
         self,
@@ -818,7 +774,12 @@ class TeleOCRClient:
             all_prompts.extend(prompts)
             all_params.extend(params)
             all_indices.extend([(img_idx, idx) for idx in indices])
-        outputs = self.client.batch_predict(all_images, all_prompts, all_params, priority)
+        block_priorities = priority
+        if isinstance(priority, Sequence):
+            if len(priority) != len(images):
+                raise ValueError("Length of priority and images must match")
+            block_priorities = [priority[img_idx] for img_idx, _ in all_indices]
+        outputs = self.client.batch_predict(all_images, all_prompts, all_params, block_priorities)
         for (img_idx, idx), output in zip(all_indices, outputs):
             blocks_list[img_idx][idx].content = output
         return self.helper.batch_post_process(self.executor, blocks_list)

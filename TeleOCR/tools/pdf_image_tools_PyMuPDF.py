@@ -21,40 +21,25 @@ def convert_pdf_bytes_to_bytes(pdf_bytes,valid_single_page_ids=None):
     output_pdf = fitz.open()
     try:
         total_pages = len(pdf)
-
-        if not valid_single_page_ids:
+        if total_pages == 0:
+            raise ValueError("PDF contains no pages")
+        if valid_single_page_ids is None:
             valid_single_page_ids = list(range(total_pages))
-
-        valid_single_page_ids = [
-            page_id
-            for page_id in valid_single_page_ids
-            if 0 <= page_id < total_pages
-        ]
+        invalid = [page_id for page_id in valid_single_page_ids if page_id < 0 or page_id >= total_pages]
+        if invalid:
+            raise ValueError(f"page IDs out of range for {total_pages}-page PDF: {invalid}")
 
         for page_index in valid_single_page_ids:
-            try:
-                output_pdf.insert_pdf(
-                    pdf,
-                    from_page=page_index,
-                    to_page=page_index,
-                )
-            except Exception as page_error:
-                logger.warning(
-                    f"Failed to import page {page_index}: "
-                    f"{page_error}, skipping this page."
-                )
+            output_pdf.insert_pdf(
+                pdf,
+                from_page=page_index,
+                to_page=page_index,
+            )
 
         output_bytes = output_pdf.tobytes(
             garbage=4,
             deflate=True,
         )
-
-    except Exception as e:
-        logger.warning(
-            f"Error in converting PDF bytes: {e}, "
-            f"Using original PDF bytes."
-        )
-        output_bytes = pdf_bytes
 
     finally:
         pdf.close()
@@ -118,6 +103,9 @@ def load_images_from_pdf(
     """
 
     pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    if len(pdf_doc) == 0:
+        pdf_doc.close()
+        raise ValueError("PDF contains no pages")
 
     if is_windows_environment() or CONFIG.PDF_TOOLS_WORKER_MAX_NUM==0:
         return (
@@ -205,6 +193,9 @@ def load_images_from_pdf_core(
     pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     pdf_page_num = len(pdf_doc)
+    if pdf_page_num == 0:
+        pdf_doc.close()
+        raise ValueError("PDF contains no pages")
 
     end_page_id = get_end_page_id(end_page_id, pdf_page_num)
 
@@ -286,4 +277,3 @@ def get_page_size(page):
     w = rect.width
     h = rect.height
     return (w, h)
-    

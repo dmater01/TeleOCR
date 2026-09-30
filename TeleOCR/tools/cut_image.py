@@ -20,8 +20,10 @@ def cut_image_and_table(span, page_pil_img, page_img_md5, page_id, image_writer,
     span_type = span["type"]
     span["bbox"] = merge_bboxes_if_needed(span["bbox"])
 
-    if not check_img_bbox(span["bbox"]) or not image_writer:
+    if not image_writer:
         span["image_path"] = ""
+    elif not check_img_bbox(span["bbox"]):
+        raise ValueError(f"Invalid image bounding box: {span['bbox']}")
     else:
         span["image_path"] = cut_image(
             span["bbox"], page_id, page_pil_img, return_path=return_path(span_type), image_writer=image_writer, scale=scale

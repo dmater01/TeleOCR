@@ -10,7 +10,7 @@ import TeleOCR.config as CONFIG
 def _init_model():
     backend=CONFIG.BACKEND
     model_path = CONFIG.model_path
-    predictor = TeleOCRMODEL_SERVICE.get_model(backend, model_path, None)
+    predictor = TeleOCRMODEL_SERVICE.get_model(backend, model_path)
     return predictor
 
 async def aio_doc_analyze(
@@ -22,19 +22,24 @@ async def aio_doc_analyze(
         predictor = _init_model()
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL, threads=CONFIG.PDF_TOOLS_WORKER_MAX_NUM)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(f"load images cost: {load_images_time}, speed: {round(load_images_time/len(images_pil_list), 3)} images/s")
-    infer_start = time.time()
-    results = await predictor.aio_batch_two_step_extract(images=images_pil_list)
-    infer_time = round(time.time() - infer_start, 2)
-    logger.debug(f"infer finished, cost: {infer_time}, speed: {round(infer_time / len(results), 3)} page/s")
-    
-    output_start = time.time() 
-    middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer) 
-    output_time = round(time.time() - output_start, 2)
-    logger.debug(f"output json finished, cost: {output_time}, speed: {round(output_time / len(results), 3)} page/s")
-    return middle_json
+    try:
+        images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
+        if not images_pil_list:
+            raise ValueError("PDF contains no pages")
+        load_images_time = round(time.time() - load_images_start, 2)
+        logger.debug(f"load images cost: {load_images_time}, speed: {round(load_images_time/len(images_pil_list), 3)} images/s")
+        infer_start = time.time()
+        results = await predictor.aio_batch_two_step_extract(images=images_pil_list)
+        infer_time = round(time.time() - infer_start, 2)
+        logger.debug(f"infer finished, cost: {infer_time}, speed: {round(infer_time / len(results), 3)} page/s")
+
+        output_start = time.time()
+        middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
+        output_time = round(time.time() - output_start, 2)
+        logger.debug(f"output json finished, cost: {output_time}, speed: {round(output_time / len(results), 3)} page/s")
+        return middle_json
+    finally:
+        pdf_doc.close()
 
 
 def doc_analyze(
@@ -47,17 +52,22 @@ def doc_analyze(
     
     load_images_start = time.time()
     images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL, threads=CONFIG.PDF_TOOLS_WORKER_MAX_NUM)
-    images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
-    load_images_time = round(time.time() - load_images_start, 2)
-    logger.debug(f"load images cost: {load_images_time}, speed: {round(load_images_time/len(images_pil_list), 3)} images/s")
+    try:
+        images_pil_list = [image_dict["img_pil"] for image_dict in images_list]
+        if not images_pil_list:
+            raise ValueError("PDF contains no pages")
+        load_images_time = round(time.time() - load_images_start, 2)
+        logger.debug(f"load images cost: {load_images_time}, speed: {round(load_images_time/len(images_pil_list), 3)} images/s")
 
-    infer_start = time.time()
-    results = predictor.batch_two_step_extract(images=images_pil_list)
-    infer_time = round(time.time() - infer_start, 2)
-    logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results)/infer_time, 3)} page/s")
+        infer_start = time.time()
+        results = predictor.batch_two_step_extract(images=images_pil_list)
+        infer_time = round(time.time() - infer_start, 2)
+        logger.debug(f"infer finished, cost: {infer_time}, speed: {round(len(results)/max(infer_time, 0.01), 3)} page/s")
 
-    output_start = time.time() 
-    middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer) 
-    output_time = round(time.time() - output_start, 2)
-    logger.debug(f"output json finished, cost: {output_time}, speed: {round(output_time / len(results), 3)} page/s")
-    return middle_json
+        output_start = time.time()
+        middle_json = result_to_middle_json(results, images_list, pdf_doc, image_writer)
+        output_time = round(time.time() - output_start, 2)
+        logger.debug(f"output json finished, cost: {output_time}, speed: {round(output_time / len(results), 3)} page/s")
+        return middle_json
+    finally:
+        pdf_doc.close()

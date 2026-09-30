@@ -229,13 +229,19 @@ conda activate teleocr
 
 ### Install Dependencies
 
-Install TeleOCR and its dependencies in editable mode:
+Install TeleOCR with the inference backend you intend to use:
 
 ```bash
-pip install -e .
+# vLLM (recommended for CUDA inference)
+pip install -e ".[vllm]"
+
+# or Transformers
+pip install -e ".[transformers]"
 ```
 
-The `-e` option installs the project in **editable mode**, allowing modifications to the source code to take effect immediately without reinstalling the package.
+The core package omits GPU frameworks. Optional extras are `transformers`,
+`vllm`, `server`, `dev`, and `all`. The `-e` option installs the project in
+editable mode, allowing source changes to take effect without reinstalling.
 
 ---
 
@@ -260,9 +266,8 @@ RESULT_SAVE_PATH="/path/to/output/results"
 
 python infer.py \
     --image_sub_path "${IMAGE_SUB_PATH}" \
-    --result_save_path "${RESULT_SAVE_PATH}" \
-    --use_async \
-    --override \
+	--result_save_path "${RESULT_SAVE_PATH}" \
+	--override \
         model_path="StarDoc-AI/TeleOCR" \
         BACKEND="vllm-async-engine" \
         LAYOUT_MODE="Detection"
@@ -279,6 +284,41 @@ Main Configuration Parameters
 | `PDF_TOOLS_WORKER_MAX_NUM` | Integer                             | Maximum number of PDF processing workers                     |
 | `PDF_TOOLS_WORKER_RATIO`   | Float                               | Resource ratio allocated to PDF processing workers           |
 | `MAX_PIXELS`               | Integer                             | Maximum number of pixels allowed for each processed PDF page |
+
+Execution mode is derived from `BACKEND`; `--use_async` is accepted only as a
+deprecated compatibility flag. TeleOCR processes every independent input and
+exits with status `1` if any document fails. Argument, configuration, and
+preflight failures use status `2`.
+
+Output directories are protected by default. Pass `--overwrite` to atomically
+replace an existing per-document result. A batch containing inputs with the
+same filename stem (for example, `invoice.pdf` and `invoice.png`) is rejected
+before inference.
+
+For library callers, `valid_page_ids=None` means all pages. An empty selection,
+duplicates, non-integer IDs, and out-of-range IDs are errors. Returned
+`pdf_info[*].page_idx` always contains the original zero-based source PDF page
+index, including when pages are selected in a custom order.
+
+Supported inference backends are `transformers`, `vllm-engine`, and
+`vllm-async-engine`.
+
+### Reproducible CPU test environment
+
+`requirements-cpu-lock.txt` pins the Python 3.12 Linux x86-64 test environment,
+including CPU-only PyTorch and the development tools. Install it with `uv` so
+the CPU PyTorch index is selected explicitly:
+
+```bash
+uv venv .venv-cpu --python 3.12
+uv pip sync --python .venv-cpu/bin/python \
+    --torch-backend cpu \
+    requirements-cpu-lock.txt
+uv pip install --python .venv-cpu/bin/python --no-deps -e .
+.venv-cpu/bin/python -m pytest -q
+```
+
+Run inference with `BACKEND=transformers`; vLLM is not part of the CPU lock.
 
 
 ---
@@ -319,5 +359,3 @@ If you have any questions, suggestions, or issues, please feel free to:
 
 * Open an issue in this repository
 * Contact the TeleOCR authors
-
-

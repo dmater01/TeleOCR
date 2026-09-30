@@ -4,10 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TeleOCR"
-version = "0.1.0"
+version = "1.0.0"
 description = "TELEOCR inference package with Transformers and vLLM plugin support."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 
 dependencies = [
     # basic
@@ -21,30 +23,20 @@ dependencies = [
     "loguru>=0.7,<1",
     "tqdm>=4.67,<5",
 
-    # network/server
-    "requests>=2.32,<3",
+    # local/remote resource loading
     "aiofiles>=24,<25",
-    "aiohttp>=3.13,<4",
     "httpx>=0.28,<1",
-    "httpx-retries>=0.4,<1",
-
-    # api
-    "fastapi>=0.128,<1",
-    "uvicorn>=0.40,<1",
     "pydantic>=2.13,<3",
-    "python-multipart>=0.0.21,<1",
 
     # utils
-    "beautifulsoup4>=4.14,<5",
     "fast-langdetect>=0.2,<0.3",
     "magika>=1.0,<2",
-    "pyclipper>=1.4,<2",
-    "shapely>=2.1,<3",
-    "json-repair>=0.55,<1",
-    "boto3>=1.42,<2",
-    "botocore>=1.42,<2",
+]
 
-    # Transformers inference
+
+[project.optional-dependencies]
+
+transformers = [
     "torch>=2.8,<2.9",
     "torchvision>=0.23,<0.24",
     "transformers>=4.57,<4.58",
@@ -52,25 +44,30 @@ dependencies = [
     "accelerate>=1.12,<2",
     "safetensors>=0.7,<0.8",
     "qwen-vl-utils>=0.0.14,<0.1",
-
-    # vLLM server
-    "vllm>=0.11,<0.12",
-    "xformers>=0.0.32,<0.0.33",
 ]
 
-
-[project.optional-dependencies]
+vllm = [
+    "vllm>=0.11,<0.12",
+    "xformers>=0.0.32,<0.0.33",
+    "transformers>=4.57,<4.58",
+]
 
 server = [
+    "fastapi>=0.128,<1",
+    "uvicorn>=0.40,<1",
+    "python-multipart>=0.0.21,<1",
     "gradio>=5.49,<6",
 ]
 
 dev = [
+    "build>=1.3,<2",
+    "pytest>=8.4,<9",
+    "pytest-asyncio>=1.2,<2",
     "ruff>=0.14,<1",
 ]
 
 all = [
-    "TeleOCR[server]",
+    "TeleOCR[transformers,vllm,server]",
 ]
 
 
@@ -88,6 +85,10 @@ include = [
     "TeleOCR*",
     "TeleOCR_vllm*",
 ]
+exclude = [
+    "TeleOCR-vllm",
+    "TeleOCR-vllm.*",
+]
 
 
 [tool.setuptools.package-data]
@@ -98,3 +99,15 @@ include = [
     "*.yaml",
     "*.yml",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F"]
+ignore = ["F401", "F841"]

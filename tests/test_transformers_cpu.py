@@ -1,12 +1,16 @@
 import sys
 from types import ModuleType, SimpleNamespace
 
-import torch
+import pytest
 from PIL import Image
 
-import TeleOCR.config as config
-from TeleOCR.vlm_utils.TeleOCR_model import TeleOCRMODEL_SERVICE
-from TeleOCR.vlm_utils.vlm_client.transformers_client import TransformersVlmClient
+torch = pytest.importorskip("torch", reason="requires the Transformers backend extra")
+
+import TeleOCR.config as config  # noqa: E402
+from TeleOCR.vlm_utils.TeleOCR_model import TeleOCRMODEL_SERVICE  # noqa: E402
+from TeleOCR.vlm_utils.vlm_client.transformers_client import (  # noqa: E402
+    TransformersVlmClient,
+)
 
 
 class Batch(dict):

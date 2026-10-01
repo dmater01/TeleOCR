@@ -17,6 +17,7 @@ def test_update_is_atomic(monkeypatch):
         ("LAYOUT_MODE=Other", "Unsupported LAYOUT_MODE"),
         ("PDF_TOOLS=Other", "Unsupported PDF_TOOLS"),
         ("MAX_PIXELS=0", "MAX_PIXELS"),
+        ("MAX_NEW_TOKENS=0", "MAX_NEW_TOKENS"),
     ],
 )
 def test_invalid_configuration_is_rejected(override, message):

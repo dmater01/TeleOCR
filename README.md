@@ -279,6 +279,7 @@ Main Configuration Parameters
 | `BACKEND`                  | `vllm-engine` / `vllm-async-engine` | Inference backend                                            |
 | `LAYOUT_MODE`              | `Detection` / `Segmentation`        | Layout processing mode                                       |
 | `MAX_MODEL_LEN`            | Integer                             | Maximum sequence length for vLLM                             |
+| `MAX_NEW_TOKENS`           | Integer                             | Maximum generated tokens per Transformers request            |
 | `GPU_MEMORY_UTILIZATION`   | Float                               | GPU memory utilization ratio                                 |
 | `PDF_TOOLS`                | `PyMuPDF` / `pypdfium2`             | PDF processing backend                                       |
 | `PDF_TOOLS_WORKER_MAX_NUM` | Integer                             | Maximum number of PDF processing workers                     |
@@ -319,6 +320,9 @@ uv pip install --python .venv-cpu/bin/python --no-deps -e .
 ```
 
 Run inference with `BACKEND=transformers`; vLLM is not part of the CPU lock.
+The Transformers backend preserves the checkpoint's native dtype on CPU and
+uses low-memory loading. For a quick CPU smoke test, set
+`MAX_NEW_TOKENS=32`; increase it for complete document output.
 
 
 ---

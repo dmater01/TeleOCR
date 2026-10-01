@@ -21,6 +21,7 @@ LAYOUT_MODE = "Detection"
 # =========================
 
 MAX_MODEL_LEN = 16384
+MAX_NEW_TOKENS = 4096
 GPU_MEMORY_UTILIZATION = 0.95
 
 
@@ -41,6 +42,7 @@ CONFIG_KEYS = {
     "BACKEND",
     "LAYOUT_MODE",
     "MAX_MODEL_LEN",
+    "MAX_NEW_TOKENS",
     "GPU_MEMORY_UTILIZATION",
     "PDF_TOOLS",
     "PDF_TOOLS_WORKER_MAX_NUM",
@@ -80,6 +82,8 @@ def _validate(values):
         raise ValueError(f"Unsupported PDF_TOOLS: {values['PDF_TOOLS']!r}")
     if values["MAX_MODEL_LEN"] <= 0:
         raise ValueError("MAX_MODEL_LEN must be positive")
+    if values["MAX_NEW_TOKENS"] <= 0:
+        raise ValueError("MAX_NEW_TOKENS must be positive")
     if not 0 < values["GPU_MEMORY_UTILIZATION"] <= 1:
         raise ValueError("GPU_MEMORY_UTILIZATION must be in (0, 1]")
     if values["PDF_TOOLS_WORKER_MAX_NUM"] < 0:

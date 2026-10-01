@@ -55,17 +55,20 @@ class TeleOCRMODEL:
                     model_path,
                     trust_remote_code=True,
                 )
-                torch_dtype = kwargs.pop(
-                    "torch_dtype",
-                    torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-                )
+                has_cuda = torch.cuda.is_available()
+                legacy_dtype = kwargs.pop("torch_dtype", None)
+                if legacy_dtype is not None:
+                    kwargs.setdefault("dtype", legacy_dtype)
+                else:
+                    kwargs.setdefault("dtype", torch.bfloat16 if has_cuda else "auto")
+                if not has_cuda:
+                    kwargs.setdefault("low_cpu_mem_usage", True)
                 model = AutoModelClass.from_pretrained(
                     model_path,
                     trust_remote_code=True,
-                    torch_dtype=torch_dtype,
                     **kwargs,
                 )
-                if torch.cuda.is_available():
+                if has_cuda:
                     model = model.cuda()
                 model = model.eval()
             if backend == "vllm-engine":

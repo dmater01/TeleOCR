@@ -4,7 +4,10 @@ from itertools import groupby
 from typing import Sequence
 
 from PIL import Image
+import torch
 from tqdm import tqdm
+
+import TeleOCR.config as CONFIG
 
 from .base_client import (
     DEFAULT_SYSTEM_PROMPT,
@@ -104,8 +107,11 @@ class TransformersVlmClient(VlmClient):
             generate_kwargs["no_repeat_ngram_size"] = sp.no_repeat_ngram_size
         if sp.max_new_tokens is not None:
             generate_kwargs["max_new_tokens"] = sp.max_new_tokens
-        else:  # set max_length when max_new_tokens is not set
-            generate_kwargs["max_length"] = self.model_max_length
+        else:
+            generate_kwargs["max_new_tokens"] = min(
+                CONFIG.MAX_NEW_TOKENS,
+                self.model_max_length,
+            )
         generate_kwargs["do_sample"] = do_sample
         return generate_kwargs
 
@@ -220,12 +226,13 @@ class TransformersVlmClient(VlmClient):
 
         generate_kwargs = self.build_generate_kwargs(sampling_params)
 
-        output_ids = self.model.generate(
-            **inputs,
-            use_cache=True,
-            **generate_kwargs,
-            **kwargs,
-        )
+        with torch.inference_mode():
+            output_ids = self.model.generate(
+                **inputs,
+                use_cache=True,
+                **generate_kwargs,
+                **kwargs,
+            )
 
         output_ids = output_ids.cpu().tolist()
         output_ids = [ids[len(in_ids) :] for in_ids, ids in zip(inputs.input_ids, output_ids)]

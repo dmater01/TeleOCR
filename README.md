@@ -276,7 +276,7 @@ Main Configuration Parameters
 
 | Parameter                  | Supported Values                    | Description                                                  |
 | -------------------------- | ----------------------------------- | ------------------------------------------------------------ |
-| `BACKEND`                  | `vllm-engine` / `vllm-async-engine` | Inference backend                                            |
+| `BACKEND`                  | `transformers` / `vllm-engine` / `vllm-async-engine` | Inference backend                              |
 | `LAYOUT_MODE`              | `Detection` / `Segmentation`        | Layout processing mode                                       |
 | `MAX_MODEL_LEN`            | Integer                             | Maximum sequence length for vLLM                             |
 | `MAX_NEW_TOKENS`           | Integer                             | Maximum generated tokens per Transformers request            |
@@ -323,6 +323,11 @@ Run inference with `BACKEND=transformers`; vLLM is not part of the CPU lock.
 The Transformers backend preserves the checkpoint's native dtype on CPU and
 uses low-memory loading. For a quick CPU smoke test, set
 `MAX_NEW_TOKENS=32`; increase it for complete document output.
+
+Detailed CPU documentation:
+
+* [CPU User Guide](docs/CPU_USER_GUIDE.md)
+* [CPU Technical Guide](docs/CPU_TECHNICAL_GUIDE.md)
 
 
 ---

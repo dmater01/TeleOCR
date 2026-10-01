@@ -5,7 +5,7 @@
 model_path = "StarDoc-AI/TeleOCR"
 
 BACKEND = "vllm-async-engine"
-# [vllm-engine, vllm-async-engine]
+# [transformers, vllm-engine, vllm-async-engine]
 
 
 # =========================
